@@ -2,15 +2,15 @@
                                         # https://docs.google.com/document/d/1VzQHfzfA-S_lO2wpXDFjDzSJntJCMwP03TzefIj7RrE/edit#
                                         #
 
-
+source("~/prefix.R")
 library(data.table)
 source("~/fhr-r-rollups/lib/search.R"         ,keep.source=FALSE)
 source("~/fhr-r-rollups/lib/profileinfo.R"     ,keep.source=FALSE)
 source("~/fhr-r-rollups/lib/activity.R"        ,keep.source=FALSE)
 source("~/fhr-r-rollups/lib/sguha.functions.R" ,keep.source=FALSE)
 
-isn <- function(x,r=NA) if(is.null(x) || length(x)==0)  r else x
-
+isn <- function(x,r=NA) if(is.null(x) || length(x)==0 )  r else x
+replaceNA <- function(k,r) if(is.na(k)) r else k
 
 
 #' @param b the JSON object
@@ -22,7 +22,7 @@ isThisProfileForFHRV4 <- function(version, channel, build,clientId){
         return(out)
     if(grepl("release",channel)){
         if(version>41) return("out")
-        m  <- digest(clientId,algo="md5") %% 100
+        m  <- as.numeric(sprintf("0x%s",digest(clientId,algo='crc32',serialize=FALSE))) %% 100
         if(version==41 && m >=42 && m <47) return("out")
     }
     if(grepl('beta',channel) && version>=39 && build >= "20150511")
@@ -61,6 +61,7 @@ imputeVersionAndBuildHistory <- function(b){
     nl
 }
 
+
 trans <- function(a,b){
     base <- list(
         clientid     = if(is.null(b$clientID)) UUIDgenerate() else b$clientID
@@ -69,8 +70,7 @@ trans <- function(a,b){
        ,channel      = isn(b$geckoAppInfo$updateChannel,"missing")
        ,os           = isn(b$geckoAppInfo$os,"missing"))
 
-    dates       <- names(b$data$days)
-    days        <- b$data$days[order(dates)]
+    days        <- b$data$days[order(names(b$data$days))]
     versionAndBuildHistory <- imputeVersionAndBuildHistory(b)
 
                                         # For Search Count
@@ -85,36 +85,34 @@ trans <- function(a,b){
                               , other  = NA)
                           , sap        = FALSE)
 
-    for(i in seq_along(days)){
-        theday <- days[[i]]
-        thedate <- dates[[i]]
+    Map(function(thedate,theday, vb){
         m <- list()
-        m$inOrOut <- isThisProfileForFHRV4(versionAndBuildHistory[[i]]$v
+        m$inOrOut <- isThisProfileForFHRV4(vb$v
                                           ,base$channel
-                                          ,versionAndBuildHistory[[i]]$b
+                                          ,vb$b
                                         # we do not want the generated clientID because they shouldn't be here
-                                           isn(b$clientid,"missing")
+                                           ,isn(b$clientid,"missing")
                                            )
 
                                         # Taken from
                                         # https://github.com/mozilla/fhr-r-rollups/blob/0990e71b28c190e486c8166220b20aefcb2451a1/lib/activity.R#L134
-        m$usageHours <- totalActivity(theday)$activesec/3600
+        m$usageHours <- totalActivity(list(theday))$activesec/3600
 
                                         # Searches
-        m$googleSearches <- isn(ds[[ thedate ]]$google,0)
-        m$bingSearches   <- isn(ds[[ thedate ]]$bing,0)
-        m$yahooSearches  <- isn(ds[[ thedate ]]$yahoo,0)
-        m$otherSearches  <- isn(ds[[ thedate ]]$other,0)
+        m$googleSearches <- replaceNA(as.numeric(isn(ds[[ thedate ]]['google'],0)),0)
+        m$bingSearches   <- replaceNA(as.numeric(isn(ds[[ thedate ]]['bing'],0)),0)
+        m$yahooSearches  <- replaceNA(as.numeric(isn(ds[[ thedate ]]['yahoo'],0)),0)
+        m$otherSearches  <- replaceNA(as.numeric(isn(ds[[ thedate ]]['other'],0)),0)
 
                                         # If missing, then the value is -1
         m$isDefaultBrowser <- isn(theday$org.mozilla.appInfo.appinfo$isDefaultBrowser,-1)
 
-        m$buildId <- versionAndBuildHistory[[i]]$b
+        m$buildId <- vb$b
 
                                         # Taken from
                                         # https://hg.mozilla.org/mozilla-central/file/tip/services/healthreport/docs/dataformat.rst#l1076
                                         # if missing (and it will be for old FHR versions) replace with 0
-        m$numCrashes <- isn(theday$org.mozilla.crashes.crashes$"main-crash",0)2
+        m$numCrashes <- isn(theday$org.mozilla.crashes.crashes$"main-crash",0)
 
                                         # Taken from
                                         # https://hg.mozilla.org/mozilla-central/file/tip/services/healthreport/docs/dataformat.rst#l1076
@@ -124,7 +122,8 @@ trans <- function(a,b){
         m$activityDate <- thedate
 
         rhcollect(a, append(base, m))
-    }
+    }, names(days), days, versionAndBuildHistory)
+
 }
 
 I <- local({
