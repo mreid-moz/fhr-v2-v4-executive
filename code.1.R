@@ -30,8 +30,10 @@ isThisProfileForFHRV4 <- function(b){
     build   <- substr(isn(b$geckoAppInfo$appBuildID,"00000000"),1,8)
     m <- digest(b$clientId,algo="md5")
 
+    ## I'm not at all sure about the this first condition
     if(grepl("esr",channel) && version>=42 && grepl("release", channel) && m>=42 && m<47)
         return(1)
+    ## Others seem okay
     if(grepl('beta',channel) && version>=39 && build >= "20150511")
         return(1)
     if(grepl('aurora',channel) && version>=39 && build >= "20150330")
