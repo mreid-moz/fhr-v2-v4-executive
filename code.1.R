@@ -28,12 +28,14 @@ isThisProfileForFHRV4 <- function(b){
     version <- convertToVersionNumber(isn(b$geckoAppInfo$platformVersion,"-1"))
     channel <- isn(b$geckoAppInfo$updateChannel,"missing")
     build   <- substr(isn(b$geckoAppInfo$appBuildID,"00000000"),1,8)
-    m <- digest(b$clientId,algo="md5")
+    m <- digest(b$clientId,algo="md5") %% 100
 
-    ## I'm not at all sure about the this first condition
-    if(grepl("esr",channel) && version>=42 && grepl("release", channel) && m>=42 && m<47)
+    if(grepl("esr",channel) && version>=42)
         return(1)
-    ## Others seem okay
+    if(grepl("release", channel) && version>=42)
+        return(1)
+    if(grepl("release", channel) && version==41 && m>=42 && m<47)
+        return(1)
     if(grepl('beta',channel) && version>=39 && build >= "20150511")
         return(1)
     if(grepl('aurora',channel) && version>=39 && build >= "20150330")
