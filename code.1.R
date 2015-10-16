@@ -50,6 +50,7 @@ imputeVersionAndBuildHistory <- function(b){
     days <- b$data$days[order(names(b$data$days))]
     nl <- structure(vector(mode='list', length=length(days)),names=names(days))
     for(l in rev(seq_along(days))){
+        ## go backwards in time
         aday <- days[[l]]
         if(!is.null(aday$org.mozilla.appInfo.versions$platformBuildID))
             currentBuild <- isn(substr(aday$org.mozilla.appInfo.versions$platformBuildID,1,8),"missing")
@@ -108,14 +109,7 @@ trans <- function(a,b){
                                         # If missing, then the value is -1
         m$isDefaultBrowser <- isn(theday$org.mozilla.appInfo.appinfo$isDefaultBrowser,-1)
 
-                                        # Last Build ID (last value carried forward). Note this can be
-                                        # missing for every day and so this will end up being 'missing'
-                                        # If all are missing then an alternative would be to replace
-                                        # it with the value from geckoAppInfo.
-                                        # not doing since it hasn't been asked for
-        if(!is.null(theday$org.mozilla.appInfo.versions$appBuildID))
-            lastBuildID <- theday$org.mozilla.appInfo.versions$appBuildID
-        m$buildId <- lastBuildID
+        m$buildId <- versionAndBuildHistory[[i]]$b
 
                                         # Taken from
                                         # https://hg.mozilla.org/mozilla-central/file/tip/services/healthreport/docs/dataformat.rst#l1076
