@@ -65,7 +65,7 @@ imputeVersionAndBuildHistory <- function(b){
 trans <- function(a,b){
     base <- list(
         clientid     = if(is.null(b$clientID)) UUIDgenerate() else b$clientID
-       ,documentId   = 'missing'
+       ,documentId   = a
        ,country      = isn(b$geo,"missing")
        ,channel      = isn(b$geckoAppInfo$updateChannel,"missing")
        ,os           = isn(b$geckoAppInfo$os,"missing"))
@@ -107,7 +107,8 @@ trans <- function(a,b){
                                         # If missing, then the value is -1
         m$isDefaultBrowser <- isn(theday$org.mozilla.appInfo.appinfo$isDefaultBrowser,-1)
 
-        m$buildId <- vb$b
+        m$buildId <- tail(vb$b,1)
+        m$fxversion <- tail(vb$v,1)
 
                                         # Taken from
                                         # https://hg.mozilla.org/mozilla-central/file/tip/services/healthreport/docs/dataformat.rst#l1076
@@ -126,6 +127,8 @@ trans <- function(a,b){
 
 }
 
+
+
 I <- local({
     tail(data.table(rhls("/user/bcolloran/deorphaned/"))[order(modtime),]$file,1)
 })
@@ -137,12 +140,13 @@ O <- local({
 })
 
 res <- rhwatch(map    = function(a,b) trans(a, fromJSON(b))
-             , reduce = 0
+             , reduce = 50
              , input  = sqtxt(sprintf("%s/v2",I))
              , output = O$r
-             , debug  = 'count'
+             , debug  = 'collect'
              , read   = FALSE
-             , param  = list(isn=isn, getVersion=getVersion,isThisProfileForFHRV4=isThisProfileForFHRV4,trans=trans
+             , param  = list(isn=isn, replaceNA=replaceNA,getVersion=getVersion
+                            ,isThisProfileForFHRV4=isThisProfileForFHRV4,trans=trans
                             ,imputeVersionAndBuildHistory=imputeVersionAndBuildHistory
                             ,totalActivity=totalActivity,dailySearchCounts=dailySearchCounts
                             ,get.distribution.type=get.distribution.type)
@@ -152,3 +156,21 @@ res <- rhwatch(map    = function(a,b) trans(a, fromJSON(b))
                  library(digest)
              })
              )
+
+toText <- function (i, o)
+{
+    y <- rhwatch(map = function(a, b) {
+        rhcollect(NULL, b)
+    }
+  , reduce = 0
+  , input = i
+  , output = rhfmt(type = "text", folder = o,
+                   writeKey = FALSE, field.sep = "\t", stringquote = "")
+  , read = FALSE)
+    a <- rhls(o)$file
+    rhdel(a[!grepl("part-", a)])
+    rhchmod(o, "777")
+    o
+}
+
+toText(O$r,O$t)
