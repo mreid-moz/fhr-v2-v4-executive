@@ -141,7 +141,7 @@ O <- local({
 })
 
 res <- rhwatch(map    = function(a,b) trans(a, fromJSON(b))
-             , reduce = 50
+             , reduce = 400
              , input  = sqtxt(sprintf("%s/v2",I))
              , output = O$r
              , debug  = 'collect'
