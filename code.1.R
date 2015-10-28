@@ -13,25 +13,26 @@ isn <- function(x,r=NA) if(is.null(x) || length(x)==0 )  r else x
 replaceNA <- function(k,r) if(is.na(k)) r else k
 
 
-#' @param b the JSON object
-#' @return 1 if this profile should be V4 profile and 0 otherwise
-isThisProfileForFHRV4 <- function(version, channel, build,clientId){
-                                        # see https://mail.mozilla.org/pipermail/fhr-dev/2015-October/000638.html
+#' @return "out" if this datum should be V4 profile and "in" otherwise
+isThisProfileForFHRV4 <- function(version, channel, build, clientId){
+                                        # see https://bugzilla.mozilla.org/show_bug.cgi?id=1175583#c7
     out <- "out"; notout <- "in"
-    if(grepl("esr",channel) && version>=42)
+    if(grepl("esr",channel) && version>=45)
         return(out)
     if(grepl("release",channel)){
-        if(version>41) return("out")
-        m  <- as.numeric(sprintf("0x%s",digest(clientId,algo='crc32',serialize=FALSE))) %% 100
-        if(version==41 && m >=42 && m <47) return("out")
+        if(version>41) return(out)
+        m <- as.numeric(sprintf("0x%s",digest(clientId,algo='crc32',serialize=FALSE))) %% 100
+        if(version==41 && m >=42 && m < 47) return(out)
+                                        # TODO: users of v40 should be "out" if they have opted in to telemetry, but we need the value of org.mozilla.appInfo.appinfo[isTelemetryEnabled]
+                                        # if(version < 41 && telemetryEnabled) return(out)
     }
-    if(grepl('beta',channel) && version>=39 && build >= "20150511")
+    if(grepl('beta',channel) && version>=40)
         return(out)
-    if(grepl('aurora',channel) && version>=39 && build >= "20150330")
+    if(grepl('aurora',channel) && version>=40 && build >= "20150620")
         return(out)
-    if(grepl('nightly',channel) && version>=39 && build >= "20150226")
+    if(grepl('nightly',channel) && version>=41 && build >= "20150612")
         return(out)
-    if(grepl('default',channel) && version>=39)
+    if(grepl('default',channel) && version>=41)
         return(out)
     if(version>41)
         return(out)
