@@ -14,7 +14,7 @@ replaceNA <- function(k,r) if(is.na(k)) r else k
 
 
 #' @return "out" if this datum should be V4 profile and "in" otherwise
-isThisProfileForFHRV4 <- function(version, channel, build, clientId){
+isThisProfileForFHRV4 <- function(version, channel, build, istelemenabled,clientId){
                                         # see https://bugzilla.mozilla.org/show_bug.cgi?id=1175583#c7
     out <- "out"; notout <- "in"
     if(grepl("esr",channel) && version>=45)
@@ -23,8 +23,7 @@ isThisProfileForFHRV4 <- function(version, channel, build, clientId){
         if(version>41) return(out)
         m <- as.numeric(sprintf("0x%s",digest(clientId,algo='crc32',serialize=FALSE))) %% 100
         if(version==41 && m >=42 && m < 47) return(out)
-                                        # TODO: users of v40 should be "out" if they have opted in to telemetry, but we need the value of org.mozilla.appInfo.appinfo[isTelemetryEnabled]
-                                        # if(version < 41 && telemetryEnabled) return(out)
+        if(version==40 && istelemenabled) return(out)
     }
     if(grepl('beta',channel) && version>=40)
         return(out)
@@ -88,11 +87,12 @@ trans <- function(a,b){
 
     Map(function(thedate,theday, vb){
         m <- list()
-        m$inOrOut <- isThisProfileForFHRV4(vb$v
-                                          ,base$channel
-                                          ,vb$b
+        m$inOrOut <- isThisProfileForFHRV4(version=vb$v
+                                          ,channel=base$channel
+                                          ,build=vb$b
+                                          ,istelemenabled=isn(theday$"org.mozilla.appInfo.appinfo"$isTelemetryEnabled,FALSE)
                                         # we do not want the generated clientID because they shouldn't be here
-                                           ,isn(b$clientid,"missing")
+                                          ,clientId=isn(b$clientid,"missing")
                                            )
 
                                         # Taken from
