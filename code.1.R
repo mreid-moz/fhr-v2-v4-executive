@@ -64,11 +64,12 @@ imputeVersionAndBuildHistory <- function(b){
 
 trans <- function(a,b){
     base <- list(
-        clientid     = if(is.null(b$clientID)) UUIDgenerate() else b$clientID
-       ,documentId   = a
-       ,country      = isn(b$geo,"missing")
-       ,channel      = isn(b$geckoAppInfo$updateChannel,"missing")
-       ,os           = isn(b$geckoAppInfo$os,"missing"))
+        clientid        = if(is.null(b$clientID)) UUIDgenerate() else b$clientID
+       ,documentId      = a
+       ,country         = isn(b$geo,"missing")
+       ,channel         = isn(b$geckoAppInfo$updateChannel,"missing")
+       ,os              = isn(b$geckoAppInfo$os,"missing")
+       ,profileCreation = isn(b$data$last$"org.mozilla.profile.age"$profileCreation,"missing"))
 
     days        <- b$data$days[order(names(b$data$days))]
     versionAndBuildHistory <- imputeVersionAndBuildHistory(b)
