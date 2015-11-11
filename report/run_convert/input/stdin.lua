@@ -93,25 +93,6 @@ local function get_default(something)
     end
 end
 
-function split(str, pat)
-    local t = {}
-    local fpat = "(.-)" .. pat
-    local last_end = 1
-    local s, e, cap = str:find(fpat, 1)
-    while s do
-        if s ~= 1 or cap ~= "" then
-            table.insert(t,cap)
-        end
-        last_end = e+1
-        s, e, cap = str:find(fpat, last_end)
-    end
-    if last_end <= #str then
-        cap = str:sub(last_end)
-        table.insert(t, cap)
-    end
-    return t
-end
-
 num_fields = 18
 
 CID = 1
@@ -137,16 +118,13 @@ local fields = {}
 local field_count = 0
 function process_message()
     for line in io.lines() do
-        -- Strip trailing EOLs from the line
+        -- Example line:
+        -- clientid    documentid    AU      release WINNT   16291.0 in      0.122     0.0     0.0     0.0     1.0     0.0     20150122        35      0.0    0.0      2015-08-05
         field_count = 0
         for field in string.gmatch(line, "([^\t]*)[\t\r]") do
             field_count = field_count + 1
             fields[field_count] = field
-            --print("Field", field_count, "is", field)
         end
-        -- Example line:
-        -- clientid    documentid    AU      release WINNT   16291.0 in      0.122     0.0     0.0     0.0     1.0     0.0     20150122        35      0.0    0.0      2015-08-05
-        --local fields = split(line:gsub("%s+$", ""), "\t")
         if field_count == num_fields then
             local ts = parse_date(fields[ACTIVITY])
             msg.Timestamp = ts
