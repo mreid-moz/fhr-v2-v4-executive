@@ -25,12 +25,18 @@ aws s3 sync "$FHR_SOURCE/" $FHR_DEST/ --exclude "*" --include "${DAY_DASH}.*.sna
 ## Run each data file through the exec report
 for f in $(find $FHR_DEST/ -name "*.snap"); do
   python -m snappy -d $f | ./hindsight_cli ./hindsight_convert.cfg 7
-  echo "TODO: rm -v $f"
+  rm -v $f
 done
 
 #echo "TODO: run on UT data for $DAY_NODASH"
 #exit 0
 # TODO: symlink the .data files so both operate on the same state.
+if [ ! -h "run_exec/analysis/firefox_executive_daily.data" ]; then
+  echo "creating symlinks"
+  ln -vs $(pwd)/run_convert/analysis/firefox_executive_daily.data $(pwd)/run_exec/analysis/firefox_executive_daily.data
+  ln -vs $(pwd)/run_convert/analysis/firefox_executive_weekly.data $(pwd)/run_exec/analysis/firefox_executive_weekly.data
+  ln -vs $(pwd)/run_convert/analysis/firefox_executive_monthly.data $(pwd)/run_exec/analysis/firefox_executive_monthly.data
+fi
 # ln -s run_exec/analysis/firefox_executive_daily.data run_convert/analysis/firefox_executive_daily.data
 # ln -s run_exec/analysis/firefox_executive_weekly.data run_convert/analysis/firefox_executive_weekly.data
 # ln -s run_exec/analysis/firefox_executive_monthly.data run_convert/analysis/firefox_executive_monthly.data
@@ -52,6 +58,9 @@ heka-s3cat -bucket $UT_SOURCE -format heka -stdin < $S3LIST | ./hindsight_cli ./
 
 ## Back up analysis state
 ## Back up current csv
+
+## Clean up output files
+rm -rfv output/
 
 #for n in $(seq 102 -1 15); do
 #    T=$(date -d "$n days ago" +%Y%m%d)
