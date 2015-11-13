@@ -2,6 +2,9 @@
 
 ## install dependencies
 sudo apt-get install --yes python-snappy
+if [ ! -f "/mnt/work/heka/share/heka/lua_modules/snappy.so" ]; then
+    cp util/snappy.so /mnt/work/heka/share/heka/lua_modules/
+fi
 
 ## Fetch v2 data for this day
 DAY_IN=$1
@@ -23,10 +26,16 @@ mkdir -p $FHR_DEST
 aws s3 sync "$FHR_SOURCE/" $FHR_DEST/ --exclude "*" --include "${DAY_DASH}.*.snap"
 
 ## Run each data file through the exec report
+FHR_INPUT=input_$DAY_NODASH.tsv
 for f in $(find $FHR_DEST/ -name "*.snap"); do
-  python -m snappy -d $f | ./hindsight_cli ./hindsight_convert.cfg 7
+  python -m snappy -d $f >> $FHR_INPUT
   rm -v $f
 done
+
+time cat $FHR_INPUT | ./hindsight_cli ./hindsight_convert.cfg 7
+
+echo "Cleaning up input for $DAY_NODASH"
+rm -v $FHR_INPUT
 
 #echo "TODO: run on UT data for $DAY_NODASH"
 #exit 0
@@ -54,7 +63,7 @@ sed -r "s/__TARGET__/$DAY_NODASH/" schema_template.2.json > schema.json
 export PATH=$PATH:/mnt/work/heka/bin
 S3LIST=ut_files${DAY_NODASH}.txt
 heka-s3list -bucket $UT_SOURCE -bucket-prefix "$UT_EXEC_PREFIX" -schema schema.json > $S3LIST
-heka-s3cat -bucket $UT_SOURCE -format heka -stdin < $S3LIST | ./hindsight_cli ./hindsight_exec.cfg 7
+time heka-s3cat -bucket $UT_SOURCE -format heka -stdin < $S3LIST | ./hindsight_cli ./hindsight_exec.cfg 7
 
 ## Back up analysis state
 ## Back up current csv
