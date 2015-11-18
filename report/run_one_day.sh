@@ -32,33 +32,45 @@ for f in $(find $FHR_DEST/ -name "*.snap"); do
   rm -v $f
 done
 
-time cat $FHR_INPUT | ./hindsight_cli ./hindsight_convert.cfg 7
+split -d -n l/10 $FHR_INPUT
 
 echo "Cleaning up input for $DAY_NODASH"
 rm -v $FHR_INPUT
 
-#echo "TODO: run on UT data for $DAY_NODASH"
-#exit 0
-# TODO: symlink the .data files so both operate on the same state.
+time ./hindsight_cli ./hindsight_convert.cfg 7
+
+cp output/hindsight.cp ./hindsight_fhr_${DAY_NODASH}.cp
+cp output/hindsight.tsv ./hindsight_fhr_${DAY_NODASH}.tsv
+rm -rfv output/
+
+echo "Cleaning up split input for $DAY_NODASH"
+rm -v x0[0-9]
+
+## Symlink the .data files so both operate on the same state.
 if [ ! -h "run_exec/analysis/firefox_executive_daily.data" ]; then
   echo "creating symlinks"
   ln -vs $(pwd)/run_convert/analysis/firefox_executive_daily.data $(pwd)/run_exec/analysis/firefox_executive_daily.data
   ln -vs $(pwd)/run_convert/analysis/firefox_executive_weekly.data $(pwd)/run_exec/analysis/firefox_executive_weekly.data
   ln -vs $(pwd)/run_convert/analysis/firefox_executive_monthly.data $(pwd)/run_exec/analysis/firefox_executive_monthly.data
 fi
-# ln -s run_exec/analysis/firefox_executive_daily.data run_convert/analysis/firefox_executive_daily.data
-# ln -s run_exec/analysis/firefox_executive_weekly.data run_convert/analysis/firefox_executive_weekly.data
-# ln -s run_exec/analysis/firefox_executive_monthly.data run_convert/analysis/firefox_executive_monthly.data
-#echo "copying state from FHR run"
-#cp -v run_convert/analysis/*.data run_exec/analysis/
+
+## Decide if we're runnning v2 or v3
+if [ -z "$UT_VERSION" ]; then
+    if [ "$DAY_NODASH" -lt "20151028" ]; then
+        UT_VERSION=2
+    else
+        UT_VERSION=3
+    fi
+    echo "UT_VERSION was unset, guessing '$UT_VERSION' based on date."
+else
+    echo "Using UT_VERSION=${UT_VERSION} as specified"
+fi
 
 UT_SOURCE=net-mozaws-prod-us-west-2-pipeline-data
-## FIXME: use -3 for recent data
-UT_EXEC_PREFIX="telemetry-executive-summary-2"
-#UT_EXEC_PREFIX="telemetry-executive-summary-3"
+UT_EXEC_PREFIX="telemetry-executive-summary-${UT_VERSION}"
+
 ## Add in the Unified Telemetry data too.
-sed -r "s/__TARGET__/$DAY_NODASH/" schema_template.2.json > schema.json
-#sed -r "s/__TARGET__/$DAY_NODASH/" schema_template.3.json > schema.json
+sed -r "s/__TARGET__/$DAY_NODASH/" schema_template.${UT_VERSION}.json > schema.json
 
 export PATH=$PATH:/mnt/work/heka/bin
 S3LIST=ut_files${DAY_NODASH}.txt
@@ -68,6 +80,8 @@ time heka-s3cat -bucket $UT_SOURCE -format heka -stdin < $S3LIST | ./hindsight_c
 ## Back up analysis state
 ## Back up current csv
 
+cp output/hindsight.cp ./hindsight_ut_${DAY_NODASH}.cp
+cp output/hindsight.tsv ./hindsight_ut_${DAY_NODASH}.tsv
 ## Clean up output files
 rm -rfv output/
 
